@@ -1,43 +1,45 @@
 import pandas as pd
+import seaborn as sns
 import matplotlib.pyplot as plt
 
-#wczytujemy dane
-df_polisy = pd.read_csv("polisy.csv")
-df_szkody = pd.read_csv("szkody.csv")
+def wczytanie_danych(sciezka):
+    print(f"Wczytywanie danych z {sciezka}")
+    try:
+        df = pd.read_csv(sciezka)
+        print(f"wczytano {len(df)} wierszy")
+        return df
+    except FileNotFoundError:
+        print("nie udało się wczytać pliku")
+        return None
+    
+def podzial_wiek(df):
+    przedzialy=[18,25,35,50,65,100]
+    etykiety=['18-25','26-35','36-50','51-65','66-100']
+    df['grupa_wiekowa'] = pd.cut(df['age'], przedzialy, etykiety)
+    return df
 
-#czyszczenie danych
-df_polisy['region'] = df_polisy['region'].str.capitalize()
-df_polisy['region'] = df_polisy['region'].fillna('brak danych')
-df_szkody['kwota_wyplacona_pln']= df_szkody['kwota_wyplacona_pln'].fillna(0)
+def tabela_szkodowosc(df):
+    pivot = df.pivot_table(
+        values = 'total_claim_amount',
+        index = 'auto_make',
+        columns=['grupa_wiekowa','insured_sex'],
+        aggfunc='mean'
+    )
+    return pivot
 
-szkody_zsumowane = df_szkody.groupby('id_klienta')['kwota_wyplacona_pln'].sum().reset_index() # agregujemy szkody tak aby każdy klient pojawiał się w tabeli tylko 1 raz
+def heatmap(tabela):
+    plt.figure(figsize=(14,8))
 
-df_master = pd.merge(df_polisy, szkody_zsumowane, on='id_klienta', how='left') # łączymy tabele
+    sns.heatmap(tabela, fmt=".0f", annot=True)
+    plt.title("Średnia kwota wypłaconej szkodu (USD) wiek, marka")
+    plt.ylabel("Marka pojazdu")
+    plt.xlabel("Grupa wiekowa i płeć")
+    plt.tight_layout()
+    plt.show()
 
-df_master['kwota_wyplacona_pln'] = df_master['kwota_wyplacona_pln'].fillna(0) # zastępujemy puste dane zerami
-
-# Tworzymy raport, sumujemy skladki i wyplacone kwoty
-raport_regiony = df_master.groupby('region').agg({
-    'skladka_pln': 'sum',
-    'kwota_wyplacona_pln': 'sum'
-}).reset_index()
-
-raport_regiony['szkodowosc_%'] = ((raport_regiony['kwota_wyplacona_pln'] / raport_regiony['skladka_pln']) * 100).round(2) # obliczamy wskaźnik szkodowości
-
-raport_regiony = raport_regiony.sort_values(by='szkodowosc_%', ascending=False) # sortujemy dane
-
-print("raport:")
-print(raport_regiony)
-
-raport_regiony.to_excel('raport.xlsx', index=False) # generujemy plik excel
-
-#rysujemy wykres
-plt.figure(figsize=(10,6))
-plt.bar(raport_regiony['region'], raport_regiony['szkodowosc_%'], color='skyblue', edgecolor='black')
-plt.axhline(y=100, color='red', linestyle='--', label='Próg straty')
-plt.title('wskaźnik straty dla każdego regionu')
-plt.xlabel('region')
-plt.ylabel('szkodowosc %')
-plt.legend()
-
-plt.show()
+if __name__ == "__main__":
+    sciezka = "insurance_claims.csv"
+    dane = wczytanie_danych(sciezka)
+    dane = podzial_wiek(dane)
+    tabela = tabela_szkodowosc(dane)
+    heatmap(tabela)
