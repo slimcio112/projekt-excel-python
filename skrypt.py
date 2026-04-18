@@ -32,7 +32,7 @@ def tabela_szkodowosc(df):
 def heatmap(tabela):
     plt.figure(figsize=(14,8))
 
-    sns.heatmap(tabela, fmt=".0f", annot=True)
+    sns.heatmap(tabela, cmap="flare", fmt=".0f", annot=True)
     plt.title("Mediana wypłaconych kwot dla wieku, marki samochodu i płci")
     plt.ylabel("Marka pojazdu")
     plt.xlabel("Grupa wiekowa i płeć")
@@ -49,7 +49,7 @@ def sprawdz_rozklad_zmiennej(df):
     plt.ylabel("Liczba wypadków")
     plt.show()
 
-def obciecie_duze_szkody(df):
+def filtruj_duze_szkody(df):
     duze_szkody = df[df['total_claim_amount']>25000].copy()
     duze_szkody['nadwyzka'] = duze_szkody['total_claim_amount'] - 25000
 
@@ -58,7 +58,7 @@ def obciecie_duze_szkody(df):
 
 # Przeprowadzamy analize TYLKO dla szkód większych niż 25 000 USD
 def model_duze_szkody(df):
-    formula = "nadwyzka ~ C(collision_type) + bodily_injuries + number_of_vehicles_involved + age + I(age**2) + C(insured_sex) + C(auto_make)" # przewidujemy wypłacone odszkodowanie na podstawie wieku, płci i marki samochodu
+    formula = "nadwyzka ~ C(collision_type) + bodily_injuries + number_of_vehicles_involved + age + I(age**2) + C(insured_sex) + C(auto_make)"
 
     model_duze = smf.glm(formula=formula, 
                          data=df, 
@@ -88,7 +88,7 @@ if __name__ == "__main__":
     heatmap(tabela) # Szkicujemy heatmape
 
     sprawdz_rozklad_zmiennej(dane) # Szkicujemy rozkład wypłaconych ubezpieczeń
-    dane_duze_szkody = obciecie_duze_szkody(dane) # usuwamy wszystkie wiersze gdzie wyplacona kwota jest mniejsza niz 25 000 USD
+    dane_duze_szkody = filtruj_duze_szkody(dane) # usuwamy wszystkie wiersze gdzie wyplacona kwota jest mniejsza niz 25 000 USD
     sprawdz_rozklad_zmiennej(dane_duze_szkody)
     print(f"Współczynnik skośności: {dane_duze_szkody['total_claim_amount'].skew()}") # współczynnik ~= 0.27 zatem dane są lekko prawo skośne wybieramy rozkład gamma
 
