@@ -15,7 +15,7 @@ def wczytanie_danych(sciezka):
         return None
     
 def podzial_wiek(df):
-    przedzialy=[18,25,35,50,65,100]
+    przedzialy=[17,25,35,50,65,100]
     etykiety=['18-25','26-35','36-50','51-65','66-100']
     df['grupa_wiekowa'] = pd.cut(df['age'], przedzialy, etykiety)
     return df
@@ -33,12 +33,11 @@ def heatmap(tabela):
     plt.figure(figsize=(14,8))
 
     sns.heatmap(tabela, fmt=".0f", annot=True)
-    plt.title("Średnia kwota wypłaconej szkodu (USD) wiek, marka")
+    plt.title("Mediana wypłaconych kwot dla wieku, marki samochodu i płci")
     plt.ylabel("Marka pojazdu")
     plt.xlabel("Grupa wiekowa i płeć")
     plt.tight_layout()
     plt.show()
-
 
 def sprawdz_rozklad_zmiennej(df):
     plt.figure(figsize=(10, 6))
@@ -51,13 +50,15 @@ def sprawdz_rozklad_zmiennej(df):
     plt.show()
 
 def obciecie_duze_szkody(df):
-    duze_szkody = df[df['total_claim_amount']>25000]
+    duze_szkody = df[df['total_claim_amount']>25000].copy()
+    duze_szkody['nadwyzka'] = duze_szkody['total_claim_amount'] - 25000
+
     return duze_szkody
 # Widoczne na wykresie są dwa szczyty z czego drugi przypomina rozkład normalny lub prawoskośny
 
 # Przeprowadzamy analize TYLKO dla szkód większych niż 25 000 USD
 def model_duze_szkody(df):
-    formula = "total_claim_amount ~ age + I(age**2) + C(insured_sex) + C(auto_make)" # przewidujemy wypłacone odszkodowanie na podstawie wieku, płci i marki samochodu
+    formula = "nadwyzka ~ age + I(age**2) + C(insured_sex) + C(auto_make)" # przewidujemy wypłacone odszkodowanie na podstawie wieku, płci i marki samochodu
 
     model_duze = smf.glm(formula=formula, 
                          data=df, 
@@ -80,15 +81,16 @@ def wykres_wynikow(wynik_duze):
 
 if __name__ == "__main__":
     sciezka = "insurance_claims.csv"
+
     dane = wczytanie_danych(sciezka) # Wczytujemy dane
     dane = podzial_wiek(dane) # Tworzymy dodatkową kolumne (podział na wiek)
-    tabela = tabela_szkodowosc(dane) # Tworzymy tabele przestawną z podziałem na wiek oraz płeć i marke samochodu
+    tabela = tabela_szkodowosc(dane) # Tworzymy tabele przestawną obliczającą mediane wypłaconych szkód z podziałem na wiek oraz płeć i marke samochodu
     heatmap(tabela) # Szkicujemy heatmape
 
     sprawdz_rozklad_zmiennej(dane) # Szkicujemy rozkład wypłaconych ubezpieczeń
     dane_duze_szkody = obciecie_duze_szkody(dane) # usuwamy wszystkie wiersze gdzie wyplacona kwota jest mniejsza niz 25 000 USD
     sprawdz_rozklad_zmiennej(dane_duze_szkody)
-    print(f"Współczynnik skośności: {dane_duze_szkody['total_claim_amount'].skew()}") # współczynnik ~= 0.27 zatem dane są lekko prawo skośne
+    print(f"Współczynnik skośności: {dane_duze_szkody['total_claim_amount'].skew()}") # współczynnik ~= 0.27 zatem dane są lekko prawo skośne wybieramy rozkład gamma
 
     model_prawy_pik = model_duze_szkody(dane_duze_szkody)
     wykres_wynikow(model_prawy_pik)
